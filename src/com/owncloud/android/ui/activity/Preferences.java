@@ -21,7 +21,10 @@
  */
 package com.owncloud.android.ui.activity;
 
+import java.util.HashSet;
+
 import android.accounts.Account;
+import android.content.Context;
 import android.content.Intent;
 import android.content.SharedPreferences;
 import android.content.pm.PackageInfo;
@@ -51,8 +54,14 @@ import android.widget.Toast;
 import com.owncloud.android.BuildConfig;
 import com.owncloud.android.R;
 import com.owncloud.android.authentication.AccountUtils;
+import com.owncloud.android.authentication.AuthenticatorActivity;
+import com.owncloud.android.datamodel.InstantUploadPreference;
+import com.owncloud.android.db.DbHandler;
 import com.owncloud.android.datamodel.OCFile;
 import com.owncloud.android.lib.common.utils.Log_OC;
+import com.owncloud.android.services.observer.InstantUploadFolderObserverService;
+import com.owncloud.android.ui.LongClickableCheckBoxPreference;
+import com.owncloud.android.ui.LongClickablePreference;
 import com.owncloud.android.utils.DisplayUtils;
 
 
@@ -76,6 +85,8 @@ public class Preferences extends PreferenceActivity {
     private AppCompatDelegate mDelegate;
 
     private PreferenceCategory mAccountsPrefCategory = null;
+    private PreferenceCategory mInstantUploadsCategory = null;
+    private String mInstantUpload;
     private String mUploadPath;
     private PreferenceCategory mPrefInstantUploadCategory;
     private Preference mPrefInstantUpload;
@@ -358,9 +369,57 @@ public class Preferences extends PreferenceActivity {
                        getString(R.string.app_name)));
                pAboutApp.setSummary(String.format(getString(R.string.about_version), appVersion));
        }
+       
+       addInstantUploadFolders();
+    }
+    
+    private void addInstantUploadFolders(){
+        // Remove folders in case list is refreshing for avoiding to have duplicate items
+        if (mInstantUploadsCategory.getPreferenceCount() > 0) {
+            mInstantUploadsCategory.removeAll();
+        }
+        
+        /* Instant Upload Folders */
+        for (InstantUploadPreference preference : InstantUploadFolderObserverService.getAll()) {
+            LongClickablePreference addInstantUploadPref = new LongClickablePreference(this);
+            addInstantUploadPref.setKey(preference.getId());
+            addInstantUploadPref.setTitle(preference.toString());
+            mInstantUploadsCategory.addPreference(addInstantUploadPref);
 
        loadInstantUploadPath();
        loadInstantUploadVideoPath();
+            addInstantUploadPref.setOnPreferenceClickListener(new OnPreferenceClickListener() {
+                @Override
+                public boolean onPreferenceClick(Preference preference) {                  
+                    Intent settingsIntent = new Intent(MainApp.getAppContext(), InstantUploadPreferencesActivity.class);
+                    settingsIntent.putExtra(InstantUploadPreferencesActivity.NUMBER, preference.getKey());
+                    startActivity(settingsIntent);
+                    return true;
+                }
+            });
+        }
+      
+        LongClickablePreference addInstantUploadPref = new LongClickablePreference(this);
+        addInstantUploadPref.setTitle("Add instant upload");
+        mInstantUploadsCategory.addPreference(addInstantUploadPref);
+        addInstantUploadPref.setOnPreferenceClickListener(new OnPreferenceClickListener() {
+            @Override
+            public boolean onPreferenceClick(Preference preference) {
+                // Create new InstantUploadPreference
+                String newValue = InstantUploadFolderObserverService.add();
+                
+                Intent settingsIntent = new Intent(MainApp.getAppContext(), InstantUploadPreferencesActivity.class);
+                settingsIntent.putExtra(InstantUploadPreferencesActivity.NUMBER, newValue);
+                startActivity(settingsIntent);
+                return true;
+            }
+        });
+    }
+
+    @Override
+    protected void onPause() {
+        saveInstantUploadPathOnPreferences();
+        super.onPause();
     }
     
     private void toggleInstantPictureOptions(Boolean value){
@@ -389,6 +448,12 @@ public class Preferences extends PreferenceActivity {
             mPrefInstantUploadCategory.removePreference(mPrefInstantVideoUploadUseSubfolders);
             mPrefInstantUploadCategory.removePreference(mPrefInstantVideoUploadOnlyOnCharging);
         }
+        
+        if (item.getItemId() == R.id.delete_instant_upload){
+            InstantUploadFolderObserverService.delete(mInstantUpload);
+            addInstantUploadFolders();
+        }
+        return true;
     }
 
     private void toggleInstantUploadBehaviour(Boolean video, Boolean picture){
@@ -406,6 +471,9 @@ public class Preferences extends PreferenceActivity {
                 PreferenceManager.getDefaultSharedPreferences(getApplicationContext());
         boolean state = appPrefs.getBoolean(PassCodeActivity.PREFERENCE_SET_PASSCODE, false);
         pCode.setChecked(state);
+        
+        // Populate the instan upload folders category with the list of folders
+        addInstantUploadFolders();
     }
 
     @Override
