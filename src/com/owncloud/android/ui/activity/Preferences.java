@@ -453,6 +453,7 @@ public class Preferences extends PreferenceActivity {
             InstantUploadFolderObserverService.delete(mInstantUpload);
             addInstantUploadFolders();
         }
+
         return true;
     }
 
