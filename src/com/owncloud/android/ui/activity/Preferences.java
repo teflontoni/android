@@ -21,10 +21,6 @@
  */
 package com.owncloud.android.ui.activity;
 
-import java.util.HashSet;
-
-import android.accounts.Account;
-import android.content.Context;
 import android.content.Intent;
 import android.content.SharedPreferences;
 import android.content.pm.PackageInfo;
@@ -52,15 +48,12 @@ import android.view.ViewGroup;
 import android.widget.Toast;
 
 import com.owncloud.android.BuildConfig;
+import com.owncloud.android.MainApp;
 import com.owncloud.android.R;
-import com.owncloud.android.authentication.AccountUtils;
-import com.owncloud.android.authentication.AuthenticatorActivity;
 import com.owncloud.android.datamodel.InstantUploadPreference;
-import com.owncloud.android.db.DbHandler;
 import com.owncloud.android.datamodel.OCFile;
 import com.owncloud.android.lib.common.utils.Log_OC;
 import com.owncloud.android.services.observer.InstantUploadFolderObserverService;
-import com.owncloud.android.ui.LongClickableCheckBoxPreference;
 import com.owncloud.android.ui.LongClickablePreference;
 import com.owncloud.android.utils.DisplayUtils;
 
@@ -84,7 +77,6 @@ public class Preferences extends PreferenceActivity {
     private Preference pAboutApp;
     private AppCompatDelegate mDelegate;
 
-    private PreferenceCategory mAccountsPrefCategory = null;
     private PreferenceCategory mInstantUploadsCategory = null;
     private String mInstantUpload;
     private String mUploadPath;
@@ -132,6 +124,8 @@ public class Preferences extends PreferenceActivity {
             Log_OC.e(TAG, "Error while showing about dialog", e);
         } 
         final String appVersion = temp;
+
+        mInstantUploadsCategory = (PreferenceCategory) findPreference("instantUploads_category");
        
         // Register context menu for list of preferences.
         registerForContextMenu(getListView());
@@ -372,12 +366,15 @@ public class Preferences extends PreferenceActivity {
        
        addInstantUploadFolders();
     }
-    
-    private void addInstantUploadFolders(){
+
+    private void addInstantUploadFolders() {
         // Remove folders in case list is refreshing for avoiding to have duplicate items
         if (mInstantUploadsCategory.getPreferenceCount() > 0) {
             mInstantUploadsCategory.removeAll();
         }
+
+        loadInstantUploadPath();
+        loadInstantUploadVideoPath();
         
         /* Instant Upload Folders */
         for (InstantUploadPreference preference : InstantUploadFolderObserverService.getAll()) {
@@ -386,11 +383,9 @@ public class Preferences extends PreferenceActivity {
             addInstantUploadPref.setTitle(preference.toString());
             mInstantUploadsCategory.addPreference(addInstantUploadPref);
 
-       loadInstantUploadPath();
-       loadInstantUploadVideoPath();
             addInstantUploadPref.setOnPreferenceClickListener(new OnPreferenceClickListener() {
                 @Override
-                public boolean onPreferenceClick(Preference preference) {                  
+                public boolean onPreferenceClick(Preference preference) {
                     Intent settingsIntent = new Intent(MainApp.getAppContext(), InstantUploadPreferencesActivity.class);
                     settingsIntent.putExtra(InstantUploadPreferencesActivity.NUMBER, preference.getKey());
                     startActivity(settingsIntent);
@@ -449,12 +444,10 @@ public class Preferences extends PreferenceActivity {
             mPrefInstantUploadCategory.removePreference(mPrefInstantVideoUploadOnlyOnCharging);
         }
         
-        if (item.getItemId() == R.id.delete_instant_upload){
-            InstantUploadFolderObserverService.delete(mInstantUpload);
-            addInstantUploadFolders();
-        }
-
-        return true;
+//        if (item.getItemId() == R.id.delete_instant_upload){
+//            InstantUploadFolderObserverService.delete(mInstantUpload);
+//            addInstantUploadFolders();
+//        }
     }
 
     private void toggleInstantUploadBehaviour(Boolean video, Boolean picture){
